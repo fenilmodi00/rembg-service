@@ -6,6 +6,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     libgl1-mesa-glx \
     libglib2.0-0 \
+    libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install
@@ -23,7 +24,9 @@ COPY . .
 # Environment variables
 ENV PORT=7000
 ENV HOST=0.0.0.0
-ENV WORKERS=2
+ENV WORKERS=1
+ENV OMP_NUM_THREADS=1
+ENV MKL_NUM_THREADS=1
 
 # Expose the configured port
 EXPOSE 7000

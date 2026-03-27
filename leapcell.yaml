@@ -11,7 +11,11 @@ service:
 # Environment Variables
 env:
   - name: WORKERS
-    value: "1" # Start with 1 worker for serverless to save memory
+    value: "1"
+  - name: OMP_NUM_THREADS
+    value: "1"
+  - name: MKL_NUM_THREADS
+    value: "1"
 
 # Health Check
 health_check:
