@@ -29,10 +29,11 @@ ENV WORKERS=1
 ENV OMP_NUM_THREADS=1
 ENV MKL_NUM_THREADS=1
 ENV OMP_DYNAMIC=TRUE
+ENV ORT_LOGGING_LEVEL=3
+ENV ONNXRUNTIME_LOGGER_SEVERITY=3
 
 # Expose the configured port
 EXPOSE 8080
 
 # Start uvicorn without multiple workers to avoid fork-related onnxruntime issues
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
-
