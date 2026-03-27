@@ -8,14 +8,13 @@ import time
 from fastapi import FastAPI, UploadFile, File, HTTPException, Response
 from fastapi.responses import StreamingResponse
 import io
-try:
-    from onnxruntime_silence import silent_onnxruntime
-    # Explicitly register ORT logger for platforms that block /sys/ access (Leapcell)
-    silent_onnxruntime()
-except ImportError:
-    pass
-
 import onnxruntime as ort
+
+# Suppress ONNX Runtime logging manually
+try:
+    ort.set_default_logger_severity(3)
+except Exception:
+    pass
 from app.processor import process_image
 
 # Load environment variables early
@@ -25,7 +24,7 @@ load_dotenv()
 app = FastAPI(
     title="rembg Background Removal API",
     version="1.0.0",
-    description="CPU-based background removal using birefnet-general model"
+    description="CPU-based background removal using u2net model"
 )
 
 # Configuration from environment
@@ -39,7 +38,7 @@ async def health_check():
     """Health check endpoint for Leapcell and internal monitoring."""
     return {
         "status": "ok", 
-        "model": "birefnet-general", 
+        "model": "u2net", 
         "ready": True
     }
 
@@ -80,7 +79,7 @@ async def remove_background(file: UploadFile = File(...)):
             media_type="image/png",
             headers={
                 "X-Processing-Time": f"{processing_time}s",
-                "X-Model": "birefnet-general"
+                "X-Model": "u2net"
             }
         )
         
