@@ -3,18 +3,20 @@ import os
 os.environ['ORT_LOGGING_LEVEL'] = '3'
 os.environ['ONNXRUNTIME_LOGGER_SEVERITY'] = '3'
 os.environ['OMP_NUM_THREADS'] = '1'
+os.environ['MKL_NUM_THREADS'] = '1'
+os.environ['ORT_ENABLE_MEM_PATTERN'] = '0'
 
 import time
 from fastapi import FastAPI, UploadFile, File, HTTPException, Response
-from fastapi.responses import StreamingResponse
 import io
-import onnxruntime as ort
 
-# Suppress ONNX Runtime logging manually
+# Explicitly try to silence ONNX Runtime if possible
 try:
+    import onnxruntime as ort
     ort.set_default_logger_severity(3)
 except Exception:
     pass
+
 from app.processor import process_image
 
 # Load environment variables early
@@ -33,7 +35,7 @@ MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024
 ALLOWED_CONTENT_TYPES = ["image/jpeg", "image/png", "image/webp"]
 
 @app.get("/health")
-@app.get("/kaithhealth")  # Support both names for compatibility
+@app.get("/kaithhealthcheck") # Match Leapcell proxy
 async def health_check():
     """Health check endpoint for Leapcell and internal monitoring."""
     return {
@@ -89,6 +91,7 @@ async def remove_background(file: UploadFile = File(...)):
 
 if __name__ == "__main__":
     import uvicorn
+    # Make default port 7000 to match current dashboard/proxy config
     port = int(os.getenv("PORT", 7000))
     log_level = os.getenv("LOG_LEVEL", "info").lower()
     uvicorn.run(app, host="0.0.0.0", port=port, log_level=log_level)
