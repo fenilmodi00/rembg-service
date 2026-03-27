@@ -2,8 +2,13 @@ import io
 from PIL import Image
 from rembg import remove, new_session
 
-# Initialize rembg session with birefnet-general
-session = new_session("birefnet-general")
+_session = None
+
+def get_session():
+    global _session
+    if _session is None:
+        _session = new_session("birefnet-general")
+    return _session
 
 def process_image(image_bytes: bytes) -> bytes:
     """
@@ -14,7 +19,7 @@ def process_image(image_bytes: bytes) -> bytes:
     input_image = Image.open(io.BytesIO(image_bytes))
     
     # Process the image
-    output_image = remove(input_image, session=session)
+    output_image = remove(input_image, session=get_session())
     
     # Convert back to bytes
     output_buffer = io.BytesIO()

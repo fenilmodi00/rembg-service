@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y \
     libgl1-mesa-glx \
     libglib2.0-0 \
     libgomp1 \
+    libatomic1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install
@@ -22,16 +23,16 @@ RUN mkdir -p /models && python -c "from rembg import new_session; new_session('b
 COPY . .
 
 # Environment variables
-ENV PORT=7000
+ENV PORT=8080
 ENV HOST=0.0.0.0
 ENV WORKERS=1
 ENV OMP_NUM_THREADS=1
 ENV MKL_NUM_THREADS=1
+ENV OMP_DYNAMIC=TRUE
 
 # Expose the configured port
-EXPOSE 7000
+EXPOSE 8080
 
-# Start uvicorn with configured workers
-# Leapcell provides the PORT environment variable
-CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-7000} --workers ${WORKERS:-2}
+# Start uvicorn without multiple workers to avoid fork-related onnxruntime issues
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
 
