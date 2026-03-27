@@ -2,7 +2,7 @@ service:
   name: rembg-service
   type: serverless
   runtime: python
-  build_command: pip install -r requirements.txt && export ORT_LOGGING_LEVEL=3 && python -c "from rembg import new_session; new_session('u2net')"
+  build_command: pip install -r requirements.txt
   start_command: uvicorn app.main:app --host 0.0.0.0 --port 7000 --workers 1
 
 env:
