@@ -1,25 +1,19 @@
-# Leapcell Configuration for Background Removal Microservice
-# Documentation: https://docs.leapcell.io/
-
+# Updated leapcell.yaml for optimal deployment
 service:
   name: rembg-service
   type: serverless
-  runtime: docker # Using Docker for consistent dependency management (rembg requires specific system libs)
-  build_command: docker build -t rembg-service .
-  start_command: docker run -p $PORT:$PORT rembg-service
+  runtime: docker
+  # Note: On many PaaS, you don't run 'docker build' as a command. 
+  # You just provide the Dockerfile.
+  build_command: pip install -r requirements.txt
+  start_command: uvicorn app.main:app --host 0.0.0.0 --port 8080
 
-# Environment Variables
 env:
+  - name: PORT
+    value: "8080"
   - name: WORKERS
     value: "1"
-  - name: OMP_NUM_THREADS
-    value: "1"
-  - name: MKL_NUM_THREADS
-    value: "1"
 
-# Health Check
 health_check:
   path: /kaithhealth
   interval: 30
-  timeout: 5
-  max_retries: 3
