@@ -1,12 +1,17 @@
-import time
 import os
+# Set environment variables BEFORE importing onnxruntime
+os.environ['ORT_LOGGING_LEVEL'] = '3'
+os.environ['ONNXRUNTIME_LOGGER_SEVERITY'] = '3'
+os.environ['OMP_NUM_THREADS'] = '1'
+
+import time
 from fastapi import FastAPI, UploadFile, File, HTTPException, Response
 from fastapi.responses import StreamingResponse
 import io
 import onnxruntime as ort
 from app.processor import process_image
 
-# Suppress ONNX Runtime logging issues on ARM64 workers
+# Initializing severity level after import as secondary safety (the environment variables are primary)
 try:
     ort.set_default_logger_severity(3)
 except Exception:
