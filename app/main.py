@@ -3,7 +3,14 @@ import os
 from fastapi import FastAPI, UploadFile, File, HTTPException, Response
 from fastapi.responses import StreamingResponse
 import io
+import onnxruntime as ort
 from app.processor import process_image
+
+# Suppress ONNX Runtime logging issues on ARM64 workers
+try:
+    ort.set_default_logger_severity(3)
+except Exception:
+    pass
 
 app = FastAPI(title="Background Removal Microservice")
 

@@ -13,6 +13,12 @@ env:
     value: "8080"
   - name: WORKERS
     value: "1"
+  - name: OMP_NUM_THREADS
+    value: "1"
+  - name: MKL_NUM_THREADS
+    value: "1"
+  - name: ONNXRUNTIME_LOGGER_SEVERITY
+    value: "3"
 
 health_check:
   path: /kaithhealth
