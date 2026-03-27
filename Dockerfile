@@ -45,5 +45,5 @@ ENV PYTHONUNBUFFERED=1
 # Expose the API port
 EXPOSE 7000
 
-# Run with 2 workers as requested for Leapcell (3 vCPU)
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7000", "--workers", "2"]
+# Run using shell form to support environment variable expansion ($PORT)
+CMD sh -c "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-7000} --workers ${WORKERS:-2}"
