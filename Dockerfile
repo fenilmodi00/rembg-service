@@ -1,39 +1,49 @@
+# Stage 1: Builder
+FROM python:3.11-slim as builder
+
+WORKDIR /app
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    g++ \
+    libglib2.0-0 \
+    libgl1-mesa-glx \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies to a prefix
+COPY requirements.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+# Stage 2: Runtime
 FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies for rembg/onnxruntime
-RUN apt-get update && apt-get install -y \
-    libgl1-mesa-glx \
+# Install runtime system libraries
+RUN apt-get update && apt-get install -y --no-install-recommends \
     libglib2.0-0 \
-    libgomp1 \
-    libatomic1 \
+    libgl1-mesa-glx \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Pre-download the model to avoid slow first request
-# We run a small script to trigger the download
-ENV U2NET_HOME=/models
-RUN mkdir -p /models && python -c "from rembg import new_session; new_session('birefnet-general')"
+# Copy installed packages from builder
+COPY --from=builder /install /usr/local
 
 # Copy application code
-COPY . .
+COPY app/ /app/app/
 
-# Environment variables
-ENV PORT=8080
-ENV HOST=0.0.0.0
-ENV WORKERS=1
-ENV OMP_NUM_THREADS=1
-ENV MKL_NUM_THREADS=1
-ENV OMP_DYNAMIC=TRUE
-ENV ORT_LOGGING_LEVEL=3
-ENV ONNXRUNTIME_LOGGER_SEVERITY=3
+# Pre-download the birefnet-general model during build time
+# This bakes the model (~370MB) into the image
+RUN python -c "from rembg import new_session; new_session('birefnet-general')"
 
-# Expose the configured port
-EXPOSE 8080
+# Model is cached in /root/.u2net/ by default in rembg
+# Set environment variables for production
+ENV PORT=7000
+ENV LOG_LEVEL=info
+ENV PYTHONUNBUFFERED=1
 
-# Start uvicorn without multiple workers to avoid fork-related onnxruntime issues
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
+# Expose the API port
+EXPOSE 7000
+
+# Run with 2 workers as requested for Leapcell (3 vCPU)
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7000", "--workers", "2"]

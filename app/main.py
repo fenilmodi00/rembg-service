@@ -17,52 +17,78 @@ try:
 except Exception:
     pass
 
-app = FastAPI(title="Background Removal Microservice")
+# Load environment variables early
+from dotenv import load_dotenv
+load_dotenv()
 
-MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
-ALLOWED_CONTENT_TYPES = ["image/jpeg", "image/png", "image/jpg"]
+app = FastAPI(
+    title="rembg Background Removal API",
+    version="1.0.0",
+    description="CPU-based background removal using birefnet-general model"
+)
+
+# Configuration from environment
+MAX_FILE_SIZE_MB = int(os.getenv("MAX_FILE_SIZE_MB", 10))
+MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024
+ALLOWED_CONTENT_TYPES = ["image/jpeg", "image/png", "image/webp"]
 
 @app.get("/health")
+@app.get("/kaithhealth")  # Support both names for compatibility
 async def health_check():
-    return {"status": "ready", "model": "birefnet-general"}
-
-@app.get("/kaithhealth")
-async def leapcell_health_check():
-    return {"status": "ok"}
+    """Health check endpoint for Leapcell and internal monitoring."""
+    return {
+        "status": "ok", 
+        "model": "birefnet-general", 
+        "ready": True
+    }
 
 @app.post("/remove-background")
-async def remove_background(
-    file: UploadFile = File(...)
-):
+async def remove_background(file: UploadFile = File(...)):
+    """
+    Remove background from the uploaded image.
+    Accepts: jpg, png, webp.
+    Returns: Transparent PNG.
+    """
+    start_time = time.time()
+    
     # 1. Validation: Content Type
     if file.content_type not in ALLOWED_CONTENT_TYPES:
-        raise HTTPException(status_code=400, detail="Invalid file type. Only JPG and PNG are allowed.")
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Invalid file type: {file.content_type}. Supported types: {', '.join(ALLOWED_CONTENT_TYPES)}"
+        )
     
     # 2. Validation: File Size
     content = await file.read()
     if len(content) > MAX_FILE_SIZE:
-        raise HTTPException(status_code=413, detail="File too large. Max size is 10MB.")
+        raise HTTPException(
+            status_code=400, 
+            detail=f"File too large. Maximum size allowed is {MAX_FILE_SIZE_MB}MB."
+        )
     
-    # 3. Processing
-    start_time = time.time()
     try:
-        result_bytes = process_image(content)
+        # 3. Process the image
+        processed_bytes = process_image(content)
+        
+        processing_time = round(time.time() - start_time, 3)
+        print(f"Processed {file.filename} in {processing_time}s")
+        
+        # 4. Return the processed image with required headers
+        return Response(
+            content=processed_bytes,
+            media_type="image/png",
+            headers={
+                "X-Processing-Time": f"{processing_time}s",
+                "X-Model": "birefnet-general"
+            }
+        )
+        
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
-    
-    processing_time = time.time() - start_time
-    
-    # 4. Response with custom headers
-    return StreamingResponse(
-        io.BytesIO(result_bytes),
-        media_type="image/png",
-        headers={
-            "X-Processing-Time": f"{processing_time:.4f}s",
-            "X-Model": "birefnet-general"
-        }
-    )
+        print(f"Error processing image {file.filename}: {e}")
+        raise HTTPException(status_code=500, detail=f"Inference failed: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", 7000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    log_level = os.getenv("LOG_LEVEL", "info").lower()
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level=log_level)
