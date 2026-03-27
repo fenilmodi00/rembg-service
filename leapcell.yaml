@@ -1,0 +1,21 @@
+# Leapcell Configuration for Background Removal Microservice
+# Documentation: https://docs.leapcell.io/
+
+service:
+  name: rembg-service
+  type: serverless
+  runtime: docker # Using Docker for consistent dependency management (rembg requires specific system libs)
+  build_command: docker build -t rembg-service .
+  start_command: docker run -p $PORT:$PORT rembg-service
+
+# Environment Variables
+env:
+  - name: WORKERS
+    value: "1" # Start with 1 worker for serverless to save memory
+
+# Health Check
+health_check:
+  path: /kaithhealth
+  interval: 30
+  timeout: 5
+  max_retries: 3
