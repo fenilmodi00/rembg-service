@@ -2,18 +2,14 @@ version: "1.0"
 services:
   - name: rembg-service
     type: http
-    # PYTORCH ENGINE: Using python 3.12 slim for ARM64 performance
+    # RUNTIME: Using Docker build is RECOMMENDED to ensure system libs & CPU patches
+    # To use this, change Build Strategy in Leapcell Dashboard to 'Docker'
     image_runtime: python:3.12-slim-bookworm
-    # BUILD-TIME DOWNLOAD: Pre-baking the 1.2GB model into the Docker layer
-    build_command: |
-      pip install -r requirements.txt && \
-      python -c "from transformers import AutoModelForImageSegmentation; AutoModelForImageSegmentation.from_pretrained('ZhengPeng7/BiRefNet', trust_remote_code=True, cache_dir='/app/models')"
-    # START-UP: Using 1 worker to fit in memory (1.2GB model overhead)
+    # COMMAND: Run with 1 worker to fit in memory
     start_command: uvicorn app.main:app --host 0.0.0.0 --port 7000 --workers 1
-    # PORT: Leapcell logic
     port: 7000
     # HEALTH CHECK: Leapcell calls this first
-    health_check_path: /health
+    health_check_path: /kaithhealth
     # ENVIRONMENT: Optimized for memory and CPU
     env:
       - name: TORCH_NUM_THREADS

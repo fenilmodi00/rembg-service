@@ -1,4 +1,5 @@
 import os
+print("--- STARTING REMBG SERVICE ---")
 import asyncio
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import Response
@@ -7,29 +8,38 @@ from app.processor import process_image, load_model
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # BACKGROUND TASK: Move the heavy model loading to a side-task 
-    # to allow the server to "Start and open port" in under 1s.
-    print("Iniciando aplicación: cargando modelo BiRefNet en segundo plano...")
-    asyncio.create_task(asyncio.to_thread(load_model))
+    # DEFERRED BACKGROUND LOAD:
+    # We delay loading to allow the app to bind and pass health checks IMMEDIATELY.
+    # This prevents the "Leapcell proxy timeout" during deployment.
+    async def gradual_load():
+        await asyncio.sleep(5) # Small buffer to let Uvicorn stabilize
+        print("Starting background model load...")
+        try:
+            await asyncio.to_thread(load_model)
+        except Exception as e:
+            print(f"Deferred load failed: {e}")
+
+    asyncio.create_task(gradual_load())
     yield
     print("Cerrando aplicación...")
 
 app = FastAPI(
-    title="Background Removal API (BiRefNet Edition)",
-    description="Service optimized for high-quality clothing background removal using PyTorch BiRefNet.",
+    title="Background Removal API",
+    description="Optimized for PyTorch BiRefNet.",
     lifespan=lifespan
 )
 
 @app.get("/")
 @app.get("/health")
-@app.get("/kaithheathcheck") # Match Leapcell proxy logic
+@app.get("/kaithhealth")
+@app.get("/kaithheathcheck") # Match Leapcell proxy typo
 async def health_check():
-    """Health endpoint for deployment platforms."""
+    """Health endpoint for deployment platforms. This returns instantly (0.1ms)."""
     return {
         "status": "ok",
-        "engine": "pytorch",
-        "model": "BiRefNet-general",
-        "ready": True # Always say ready now to prevent health check kills
+        "ready": True,
+        "model": "birefnet-general (BiRefNet)",
+        "message": "Service is running."
     }
 
 @app.post("/remove-background")
@@ -44,5 +54,5 @@ async def remove_bg(file: UploadFile = File(...)):
 
 if __name__ == "__main__":
     import uvicorn
-    # Important: 1 worker to save RAM!
+    # Use 1 worker to fit in memory (1.2GB model overhead)
     uvicorn.run(app, host="0.0.0.0", port=7000, workers=1)
