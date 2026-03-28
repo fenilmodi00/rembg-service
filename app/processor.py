@@ -2,17 +2,25 @@ import io
 from PIL import Image
 from rembg import remove, new_session
 
-print("Loading Background Removal Model (u2net)...")
-try:
-    SESSION = new_session("u2net")
-    print("Background Removal Model loaded successfully.")
-except Exception as e:
-    print(f"Error loading Background Removal Model: {e}")
-    SESSION = None
+# Global variable for the rembg session, initialized via FastAPI lifespan
+SESSION = None
+
+def load_model():
+    """Explicitly load the model session."""
+    global SESSION
+    if SESSION is None:
+        print("Loading Background Removal Model (birefnet-general)...")
+        try:
+            SESSION = new_session("birefnet-general")
+            print("Background Removal Model loaded successfully.")
+        except Exception as e:
+            print(f"Error loading Background Removal Model: {e}")
+            SESSION = None
+    return SESSION
 
 def process_image(image_bytes: bytes) -> bytes:
     """
-    Remove background from an image using the u2net model.
+    Remove background from an image using the birefnet-general model.
     :param image_bytes: Input image data as bytes.
     :return: Output image data as bytes (PNG format).
     """

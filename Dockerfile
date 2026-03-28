@@ -32,16 +32,16 @@ COPY --from=builder /install /usr/local
 # Copy application code
 COPY app/ /app/app/
 
-# Pre-download the u2net model during build time
+# Pre-download the birefnet-general model during build time
 # This ensures it's baked into the image and prevents cold starts
-RUN python -c "from rembg import new_session; new_session('u2net')"
+RUN python -c "from rembg import new_session; new_session('birefnet-general')"
 
-# Model is cached in /root/.u2net/ by default in rembg
+# Model is cached in /root/.u2net/ by default in rembg (or similar path for other models)
 # Set environment variables for production
 ENV PORT=8080
 ENV LOG_LEVEL=info
 ENV PYTHONUNBUFFERED=1
-ENV DEFAULT_MODEL=u2net
+ENV DEFAULT_MODEL=birefnet-general
 
 # Expose the API port
 EXPOSE 8080

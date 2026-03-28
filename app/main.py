@@ -1,3 +1,4 @@
+import onnxruntime_silence
 import os
 # Set environment variables BEFORE importing onnxruntime
 os.environ['ORT_LOGGING_LEVEL'] = '3'
@@ -16,17 +17,30 @@ try:
     ort.set_default_logger_severity(3)
 except Exception:
     pass
-
-from app.processor import process_image
+from contextlib import asynccontextmanager
+from app.processor import load_model, process_image
 
 # Load environment variables early
 from dotenv import load_dotenv
 load_dotenv()
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    FastAPI lifecycle events:
+    - On Startup: Load the background removal model into memory.
+    - Yield: Pass control to the application.
+    """
+    print("Iniciando aplicación: cargando modelo...")
+    load_model()
+    yield
+    print("Cerrando aplicación...")
+
 app = FastAPI(
     title="rembg Background Removal API",
     version="1.0.0",
-    description="CPU-based background removal using u2net model"
+    description="CPU-based background removal using birefnet-general model",
+    lifespan=lifespan
 )
 
 # Configuration from environment
@@ -40,7 +54,7 @@ async def health_check():
     """Health check endpoint for Leapcell and internal monitoring."""
     return {
         "status": "ok", 
-        "model": "u2net", 
+        "model": "birefnet-general", 
         "ready": True
     }
 
@@ -81,7 +95,7 @@ async def remove_background(file: UploadFile = File(...)):
             media_type="image/png",
             headers={
                 "X-Processing-Time": f"{processing_time}s",
-                "X-Model": "u2net"
+                "X-Model": "birefnet-general"
             }
         )
         

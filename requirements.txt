@@ -2,6 +2,7 @@ fastapi==0.110.0
 python-multipart==0.0.9
 uvicorn==0.27.1
 rembg[cpu]==2.0.56
-onnxruntime>=1.17.0
+onnxruntime==1.19.2
 Pillow==10.2.0
 python-dotenv==1.0.1
+onnxruntime-silence==0.0.2
