@@ -11,8 +11,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1mesa-glx \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies to a prefix
 COPY requirements.txt .
+# Install packages into a prefix to keep the image clean
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 # Stage 2: Runtime
@@ -20,37 +20,35 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install runtime system libraries
+# Set Hugging Face cache directory to a local path in the container
+# This is used at build for pre-downloading and at runtime for serving
+ENV HF_HOME=/app/models
+
+# Install runtime system libraries (required for PIL and Torch)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libglib2.0-0 \
     libgl1-mesa-glx \
     && rm -rf /var/lib/apt/lists/*
 
-# Fix: Create missing CPU info files for onnxruntime (needed for ARM64/Leapcell)
-# onnxruntime (onnx) crashes if /sys/devices/system/cpu/possible doesn't exist.
-RUN mkdir -p /sys/devices/system/cpu && \
-    echo "0-1" > /sys/devices/system/cpu/possible && \
-    echo "0-1" > /sys/devices/system/cpu/present
-
 # Copy installed packages from builder
-COPY --from=builder /install /usr/local
+COPY --from=builder /install /install
+ENV PATH="/install/bin:$PATH"
+ENV PYTHONPATH="/install/lib/python3.11/site-packages:$PYTHONPATH"
 
 # Copy application code
 COPY app/ /app/app/
 
-# Pre-download the birefnet-general model during build time
-# This ensures it's baked into the image and prevents cold starts
-RUN python -c "from rembg import new_session; new_session('birefnet-general')"
+# Pre-download the BIREFNET model during build time
+# This ensures it's baked into the image and prevents cold starts on serverless
+RUN python -c "from transformers import AutoModelForImageSegmentation; AutoModelForImageSegmentation.from_pretrained('ZhengPeng7/BiRefNet', trust_remote_code=True)"
 
-# Model is cached in /root/.u2net/ by default in rembg (or similar path for other models)
-# Set environment variables for production
-ENV PORT=8080
+# Environment variables for production
+ENV PORT=7000
 ENV LOG_LEVEL=info
 ENV PYTHONUNBUFFERED=1
-ENV DEFAULT_MODEL=birefnet-general
 
 # Expose the API port
-EXPOSE 8080
+EXPOSE 7000
 
-# Run using shell form to support environment variable expansion ($PORT)
-CMD sh -c "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080} --workers ${WORKERS:-1}"
+# Run the FastAPI application
+CMD sh -c "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-7000} --workers ${WORKERS:-1}"

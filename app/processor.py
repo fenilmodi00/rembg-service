@@ -1,8 +1,13 @@
 import io
+import os
 import torch
 from PIL import Image
 from torchvision import transforms
 from transformers import AutoModelForImageSegmentation
+
+# Set stable cache directory for models (ensures it's found in the Docker layer)
+os.environ['HF_HOME'] = '/app/models'
+os.environ['HF_HUB_CACHE'] = '/app/models'
 
 # Global variable for the BiRefNet model, initialized via FastAPI lifespan
 MODEL = None
@@ -12,16 +17,17 @@ def load_model():
     """Explicitly load the BiRefNet model using Transformers/PyTorch."""
     global MODEL
     if MODEL is None:
-        print("Loading BiRefNet Model (Torch Engine)...")
+        print(f"Loading BiRefNet Model into {DEVICE}...")
         try:
             # We use the native Transformers loader for memory efficiency and ARM64 compatibility
             # 'ZhengPeng7/BiRefNet' is the flagship general purpose model for high quality segmentation
             MODEL = AutoModelForImageSegmentation.from_pretrained(
                 'ZhengPeng7/BiRefNet', 
-                trust_remote_code=True
+                trust_remote_code=True,
+                cache_dir='/app/models' # Force use of the baked-in image directory
             ).to(DEVICE)
             MODEL.eval()
-            print("Background Removal Model (BiRefNet) loaded successfully.")
+            print("Background Removal Model (BiRefNet) loaded successfully from cache.")
         except Exception as e:
             print(f"Error loading Background Removal Model: {e}")
             MODEL = None
