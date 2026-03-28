@@ -2,7 +2,7 @@ service:
   name: rembg-service
   type: serverless
   runtime: python
-  build_command: pip install -r requirements.txt
+  build_command: pip install -r requirements.txt && python -c "from transformers import AutoModelForImageSegmentation; AutoModelForImageSegmentation.from_pretrained('ZhengPeng7/BiRefNet', trust_remote_code=True)"
   start_command: uvicorn app.main:app --host 0.0.0.0 --port 7000 --workers 1
 
 env:
@@ -10,16 +10,10 @@ env:
     value: "7000"
   - name: WORKERS
     value: "1"
-  - name: ORT_ENABLE_MEM_PATTERN
-    value: "0"
-  - name: OMP_NUM_THREADS
+  - name: TORCH_NUM_THREADS
     value: "1"
   - name: MKL_NUM_THREADS
     value: "1"
-  - name: ONNXRUNTIME_LOGGER_SEVERITY
-    value: "3"
-  - name: ORT_LOGGING_LEVEL
-    value: "3"
 
 health_check:
   path: /kaithhealthcheck

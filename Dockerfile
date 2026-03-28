@@ -26,6 +26,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1-mesa-glx \
     && rm -rf /var/lib/apt/lists/*
 
+# Fix: Create missing CPU info files for onnxruntime (needed for ARM64/Leapcell)
+# onnxruntime (onnx) crashes if /sys/devices/system/cpu/possible doesn't exist.
+RUN mkdir -p /sys/devices/system/cpu && \
+    echo "0-1" > /sys/devices/system/cpu/possible && \
+    echo "0-1" > /sys/devices/system/cpu/present
+
 # Copy installed packages from builder
 COPY --from=builder /install /usr/local
 

@@ -1,22 +1,7 @@
-import onnxruntime_silence
 import os
-# Set environment variables BEFORE importing onnxruntime
-os.environ['ORT_LOGGING_LEVEL'] = '3'
-os.environ['ONNXRUNTIME_LOGGER_SEVERITY'] = '3'
-os.environ['OMP_NUM_THREADS'] = '1'
-os.environ['MKL_NUM_THREADS'] = '1'
-os.environ['ORT_ENABLE_MEM_PATTERN'] = '0'
-
 import time
 from fastapi import FastAPI, UploadFile, File, HTTPException, Response
 import io
-
-# Explicitly try to silence ONNX Runtime if possible
-try:
-    import onnxruntime as ort
-    ort.set_default_logger_severity(3)
-except Exception:
-    pass
 from contextlib import asynccontextmanager
 from app.processor import load_model, process_image
 
@@ -31,20 +16,20 @@ async def lifespan(app: FastAPI):
     - On Startup: Load the background removal model into memory.
     - Yield: Pass control to the application.
     """
-    print("Iniciando aplicación: cargando modelo...")
+    print("Iniciando aplicación: cargando modelo BiRefNet...")
     load_model()
     yield
     print("Cerrando aplicación...")
 
 app = FastAPI(
-    title="rembg Background Removal API",
-    version="1.0.0",
-    description="CPU-based background removal using birefnet-general model",
+    title="rembg API (Torch Engine) with BiRefNet",
+    version="1.1.0",
+    description="Microservice for Background Removal using PyTorch and BiRefNet-general",
     lifespan=lifespan
 )
 
 # Configuration from environment
-MAX_FILE_SIZE_MB = int(os.getenv("MAX_FILE_SIZE_MB", 10))
+MAX_FILE_SIZE_MB = int(os.getenv("MAX_FILE_SIZE_MB", 15)) # Increased size limit for high-res BiRefNet
 MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024
 ALLOWED_CONTENT_TYPES = ["image/jpeg", "image/png", "image/webp"]
 
@@ -54,14 +39,15 @@ async def health_check():
     """Health check endpoint for Leapcell and internal monitoring."""
     return {
         "status": "ok", 
-        "model": "birefnet-general", 
+        "engine": "pytorch",
+        "model": "BiRefNet-general", 
         "ready": True
     }
 
 @app.post("/remove-background")
 async def remove_background(file: UploadFile = File(...)):
     """
-    Remove background from the uploaded image.
+    Remove background from the uploaded image using BiRefNet.
     Accepts: jpg, png, webp.
     Returns: Transparent PNG.
     """
@@ -87,7 +73,7 @@ async def remove_background(file: UploadFile = File(...)):
         processed_bytes = process_image(content)
         
         processing_time = round(time.time() - start_time, 3)
-        print(f"Processed {file.filename} in {processing_time}s")
+        print(f"Processed {file.filename} in {processing_time}s using BiRefNet-Torch")
         
         # 4. Return the processed image with required headers
         return Response(
@@ -95,7 +81,7 @@ async def remove_background(file: UploadFile = File(...)):
             media_type="image/png",
             headers={
                 "X-Processing-Time": f"{processing_time}s",
-                "X-Model": "birefnet-general"
+                "X-Model": "BiRefNet-general"
             }
         )
         
