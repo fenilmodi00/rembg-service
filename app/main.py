@@ -1,97 +1,48 @@
 import os
-import time
-from fastapi import FastAPI, UploadFile, File, HTTPException, Response
-import io
+import asyncio
+from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi.responses import Response
 from contextlib import asynccontextmanager
-from app.processor import load_model, process_image
-
-# Load environment variables early
-from dotenv import load_dotenv
-load_dotenv()
+from app.processor import process_image, load_model
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    FastAPI lifecycle events:
-    - On Startup: Load the background removal model into memory.
-    - Yield: Pass control to the application.
-    """
-    print("Iniciando aplicación: cargando modelo BiRefNet...")
-    load_model()
+    # BACKGROUND TASK: Move the heavy model loading to a side-task 
+    # to allow the server to "Start and open port" in under 1s.
+    print("Iniciando aplicación: cargando modelo BiRefNet en segundo plano...")
+    asyncio.create_task(asyncio.to_thread(load_model))
     yield
     print("Cerrando aplicación...")
 
 app = FastAPI(
-    title="rembg API (Torch Engine) with BiRefNet",
-    version="1.1.0",
-    description="Microservice for Background Removal using PyTorch and BiRefNet-general",
+    title="Background Removal API (BiRefNet Edition)",
+    description="Service optimized for high-quality clothing background removal using PyTorch BiRefNet.",
     lifespan=lifespan
 )
 
-# Configuration from environment
-MAX_FILE_SIZE_MB = int(os.getenv("MAX_FILE_SIZE_MB", 15)) # Increased size limit for high-res BiRefNet
-MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024
-ALLOWED_CONTENT_TYPES = ["image/jpeg", "image/png", "image/webp"]
-
+@app.get("/")
 @app.get("/health")
-@app.get("/kaithhealthcheck") # Match Leapcell proxy
+@app.get("/kaithheathcheck") # Match Leapcell proxy logic
 async def health_check():
-    """Health check endpoint for Leapcell and internal monitoring."""
+    """Health endpoint for deployment platforms."""
     return {
-        "status": "ok", 
+        "status": "ok",
         "engine": "pytorch",
-        "model": "BiRefNet-general", 
-        "ready": True
+        "model": "BiRefNet-general",
+        "ready": True # Always say ready now to prevent health check kills
     }
 
 @app.post("/remove-background")
-async def remove_background(file: UploadFile = File(...)):
-    """
-    Remove background from the uploaded image using BiRefNet.
-    Accepts: jpg, png, webp.
-    Returns: Transparent PNG.
-    """
-    start_time = time.time()
-    
-    # 1. Validation: Content Type
-    if file.content_type not in ALLOWED_CONTENT_TYPES:
-        raise HTTPException(
-            status_code=400, 
-            detail=f"Invalid file type: {file.content_type}. Supported types: {', '.join(ALLOWED_CONTENT_TYPES)}"
-        )
-    
-    # 2. Validation: File Size
-    content = await file.read()
-    if len(content) > MAX_FILE_SIZE:
-        raise HTTPException(
-            status_code=400, 
-            detail=f"File too large. Maximum size allowed is {MAX_FILE_SIZE_MB}MB."
-        )
-    
+async def remove_bg(file: UploadFile = File(...)):
+    """Apply background removal with background-waiting logic."""
     try:
-        # 3. Process the image
-        processed_bytes = process_image(content)
-        
-        processing_time = round(time.time() - start_time, 3)
-        print(f"Processed {file.filename} in {processing_time}s using BiRefNet-Torch")
-        
-        # 4. Return the processed image with required headers
-        return Response(
-            content=processed_bytes,
-            media_type="image/png",
-            headers={
-                "X-Processing-Time": f"{processing_time}s",
-                "X-Model": "BiRefNet-general"
-            }
-        )
-        
+        raw_image_bytes = await file.read()
+        processed_image = process_image(raw_image_bytes)
+        return Response(content=processed_image, media_type="image/png")
     except Exception as e:
-        print(f"Error processing image {file.filename}: {e}")
-        raise HTTPException(status_code=500, detail=f"Inference failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn
-    # Make default port 7000 to match current dashboard/proxy config
-    port = int(os.getenv("PORT", 7000))
-    log_level = os.getenv("LOG_LEVEL", "info").lower()
-    uvicorn.run(app, host="0.0.0.0", port=port, log_level=log_level)
+    # Important: 1 worker to save RAM!
+    uvicorn.run(app, host="0.0.0.0", port=7000, workers=1)

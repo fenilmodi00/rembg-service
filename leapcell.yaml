@@ -1,20 +1,28 @@
-service:
-  name: rembg-service
-  type: serverless
-  runtime: python
-  build_command: pip install -r requirements.txt && python -c "from transformers import AutoModelForImageSegmentation; AutoModelForImageSegmentation.from_pretrained('ZhengPeng7/BiRefNet', trust_remote_code=True)"
-  start_command: uvicorn app.main:app --host 0.0.0.0 --port 7000 --workers 1
-
-env:
-  - name: PORT
-    value: "7000"
-  - name: WORKERS
-    value: "1"
-  - name: TORCH_NUM_THREADS
-    value: "1"
-  - name: MKL_NUM_THREADS
-    value: "1"
-
-health_check:
-  path: /kaithhealthcheck
-  interval: 30
+version: "1.0"
+services:
+  - name: rembg-service
+    type: http
+    # PYTORCH ENGINE: Using python 3.12 slim for ARM64 performance
+    image_runtime: python:3.12-slim-bookworm
+    # BUILD-TIME DOWNLOAD: Pre-baking the 1.2GB model into the Docker layer
+    build_command: |
+      pip install -r requirements.txt && \
+      python -c "from transformers import AutoModelForImageSegmentation; AutoModelForImageSegmentation.from_pretrained('ZhengPeng7/BiRefNet', trust_remote_code=True, cache_dir='/app/models')"
+    # START-UP: Using 1 worker to fit in memory (1.2GB model overhead)
+    start_command: uvicorn app.main:app --host 0.0.0.0 --port 7000 --workers 1
+    # PORT: Leapcell logic
+    port: 7000
+    # HEALTH CHECK: Leapcell calls this first
+    health_check_path: /health
+    # ENVIRONMENT: Optimized for memory and CPU
+    env:
+      - name: TORCH_NUM_THREADS
+        value: "1"
+      - name: MKL_NUM_THREADS
+        value: "1"
+      - name: OMP_NUM_THREADS
+        value: "1"
+      - name: HF_HUB_OFFLINE
+        value: "1" # Force use of build-time cache
+      - name: PYTHONUNBUFFERED
+        value: "1"
