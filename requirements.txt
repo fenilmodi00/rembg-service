@@ -6,3 +6,7 @@ torchvision==0.17.1 --index-url https://download.pytorch.org/whl/cpu
 transformers==4.38.2
 Pillow==10.2.0
 python-dotenv==1.0.1
+numpy<2.0.0
+kornia
+einops
+timm
