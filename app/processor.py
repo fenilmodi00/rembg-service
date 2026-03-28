@@ -34,16 +34,16 @@ def load_model():
         os.makedirs(os.getenv('HF_HOME', '/app/models'), exist_ok=True)
         
         try:
+            # Using Float32 (default) to maximize stability and prevent cpu-probing crashes
+            # We will use torch 2.4.1+ from requirements.txt to handle missing /sys files.
             MODEL = AutoModelForImageSegmentation.from_pretrained(
                 'ZhengPeng7/BiRefNet', 
                 trust_remote_code=True,
-                cache_dir='/app/models', 
-                local_files_only=True,
-                low_cpu_mem_usage=True
+                cache_dir='/app/models'
             ).to(DEVICE)
             MODEL.eval()
             MODEL_READY = True
-            print("SUCCESS: BiRefNet loaded and ready.")
+            print("SUCCESS: BiRefNet loaded.")
         except Exception as e:
             print(f"ERROR: Model loading failed: {e}")
 
@@ -58,8 +58,9 @@ def process_image(img_bytes):
     input_image = Image.open(io.BytesIO(img_bytes)).convert("RGB")
     original_size = input_image.size
     
+    # MEMORY OPTIMIZATION: Using 512x512 for stability on serverless
     transform = transforms.Compose([
-        transforms.Resize((1024, 1024)),
+        transforms.Resize((512, 512)),
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ])

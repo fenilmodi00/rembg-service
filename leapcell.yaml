@@ -5,7 +5,12 @@ services:
     # RUNTIME: Using Docker build is RECOMMENDED to ensure system libs & CPU patches
     # To use this, change Build Strategy in Leapcell Dashboard to 'Docker'
     image_runtime: python:3.12-slim-bookworm
-    # COMMAND: Run with 1 worker to fit in memory
+    # MODEL PRE-DOWNLOAD (CRITICAL for serverless): 
+    # Bakes the 1.2GB weights into the build layer so they are ready at startup.
+    build_command: |
+      pip install -r requirements.txt && \
+      python -c "from transformers import AutoModelForImageSegmentation; AutoModelForImageSegmentation.from_pretrained('ZhengPeng7/BiRefNet', trust_remote_code=True, cache_dir='/app/models')"
+    # START-UP: Using torch 2.4.1+ for ARM64 cpuinfo fixes
     start_command: uvicorn app.main:app --host 0.0.0.0 --port 7000 --workers 1
     port: 7000
     # HEALTH CHECK: Leapcell calls this first

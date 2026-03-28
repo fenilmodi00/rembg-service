@@ -32,7 +32,8 @@ app = FastAPI(
 @app.get("/")
 @app.get("/health")
 @app.get("/kaithhealth")
-@app.get("/kaithheathcheck") # Match Leapcell proxy typo
+@app.get("/kaithhealthcheck") # Added l
+@app.get("/kaithheathcheck") # Keep typo one too
 async def health_check():
     """Health endpoint for deployment platforms. This returns instantly (0.1ms)."""
     return {
